@@ -129,6 +129,33 @@ impl Scalar {
         Self(self.0.shr_vartime(shift))
     }
 
+    #[cfg(target_os = "zkvm")]
+    pub fn invert(&self) -> CtOption<Self> {
+        #[cfg(feature = "profiling")]
+        ceno_syscall::syscall_phantom_log_pc_cycle("invert start");
+        if self.is_zero().into() {
+            return CtOption::new(Self::ZERO, 0.into());
+        }
+
+        let mut x = self.to_bytes();
+        let x_be_bytes: &mut [u8] = x.as_mut_slice();
+        let x_be_words: &mut [u32; 8] = unsafe {
+            &mut *(x_be_bytes.as_mut_ptr() as *mut [u32; 8])
+        };
+
+        // syscall, will mutate `words`
+        ceno_syscall::syscall_secp256r1_invert(x_be_words);
+        let x_inv = Self::from_repr(x).unwrap();
+
+        #[cfg(feature = "profiling")]
+        ceno_syscall::syscall_phantom_log_pc_cycle("invert end");
+        CtOption::new(
+            x_inv,
+            Choice::from(1)
+        )
+    }
+
+    #[cfg(not(target_os = "zkvm"))]
     /// Returns the multiplicative inverse of self, if self is non-zero
     pub fn invert(&self) -> CtOption<Self> {
         CtOption::new(self.invert_unchecked(), !self.is_zero())
