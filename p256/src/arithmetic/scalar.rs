@@ -389,6 +389,7 @@ impl Invert for Scalar {
     /// variable-time operation can potentially leak secrets through
     /// sidechannels.
     #[allow(non_snake_case)]
+    #[cfg(not(target_os = "zkvm"))]
     fn invert_vartime(&self) -> CtOption<Self> {
         let mut u = *self;
         let mut v = Self(MODULUS);
@@ -433,6 +434,11 @@ impl Invert for Scalar {
         }
 
         CtOption::new(C, !self.is_zero())
+    }
+
+    #[cfg(target_os = "zkvm")]
+    fn invert_vartime(&self) -> CtOption<Self> {
+        self.invert()
     }
 }
 
